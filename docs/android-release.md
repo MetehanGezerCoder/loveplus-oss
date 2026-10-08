@@ -42,7 +42,7 @@ export LOVEPLUS_RELEASE_KEY_ALIAS=loveplus
 export LOVEPLUS_RELEASE_KEY_PASSWORD=...
 ```
 
-**Losing this keystore means Meliha's phone can never install an update in place** — Android
+**Losing this keystore means an installed device can never receive an in-place update signed under the same package identity** — Android
 rejects an APK signed by a different key for the same package. Back it up.
 
 ## Build
