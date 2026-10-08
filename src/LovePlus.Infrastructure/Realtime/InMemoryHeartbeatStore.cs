@@ -108,19 +108,29 @@ public sealed class InMemoryRealtimePresenceTracker : IRealtimePresenceTracker
 {
     private readonly ConcurrentDictionary<Guid, ConcurrentDictionary<string, byte>> _connections = new();
 
-    public void Connected(Guid userId, string connectionId) =>
-        _connections.GetOrAdd(userId, _ => new ConcurrentDictionary<string, byte>())[connectionId] = 0;
-
-    public void Disconnected(Guid userId, string connectionId)
+    public Task ConnectedAsync(Guid userId, string connectionId, CancellationToken cancellationToken)
     {
-        if (!_connections.TryGetValue(userId, out var connections)) return;
+        cancellationToken.ThrowIfCancellationRequested();
+        _connections.GetOrAdd(userId, _ => new ConcurrentDictionary<string, byte>())[connectionId] = 0;
+        return Task.CompletedTask;
+    }
+
+    public Task DisconnectedAsync(Guid userId, string connectionId, CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        if (!_connections.TryGetValue(userId, out var connections)) return Task.CompletedTask;
         connections.TryRemove(connectionId, out _);
         if (connections.IsEmpty)
         {
             _connections.TryRemove(new KeyValuePair<Guid, ConcurrentDictionary<string, byte>>(userId, connections));
         }
+        return Task.CompletedTask;
     }
 
-    public bool IsOnline(Guid userId) =>
-        _connections.TryGetValue(userId, out var connections) && !connections.IsEmpty;
+    public Task<bool> IsOnlineAsync(Guid userId, CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        return Task.FromResult(
+            _connections.TryGetValue(userId, out var connections) && !connections.IsEmpty);
+    }
 }

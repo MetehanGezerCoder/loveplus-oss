@@ -27,7 +27,7 @@ public sealed class StatusHub(IApplicationDbContext db, IRealtimePresenceTracker
 
         await Groups.AddToGroupAsync(Context.ConnectionId, PairGroup.Name(pairId.Value), Context.ConnectionAborted);
         await Groups.AddToGroupAsync(Context.ConnectionId, UserGroup.Name(userId), Context.ConnectionAborted);
-        presence.Connected(userId, Context.ConnectionId);
+        await presence.ConnectedAsync(userId, Context.ConnectionId, Context.ConnectionAborted);
         await base.OnConnectedAsync();
     }
 
@@ -35,7 +35,10 @@ public sealed class StatusHub(IApplicationDbContext db, IRealtimePresenceTracker
     {
         if (Context.User is not null)
         {
-            presence.Disconnected(Context.User.RequiredUserId(), Context.ConnectionId);
+            await presence.DisconnectedAsync(
+                Context.User.RequiredUserId(),
+                Context.ConnectionId,
+                CancellationToken.None);
         }
         await base.OnDisconnectedAsync(exception);
     }

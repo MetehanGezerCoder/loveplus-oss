@@ -130,7 +130,20 @@ var heartbeatPolicy = new HeartbeatPolicy(
     MaxTotalDurationMilliseconds: builder.Configuration.GetValue("Heartbeat:MaxTotalDurationMilliseconds", 8_000),
     MaxEntryDurationMilliseconds: builder.Configuration.GetValue("Heartbeat:MaxEntryDurationMilliseconds", 1_500));
 builder.Services.AddSingleton(heartbeatPolicy);
-builder.Services.AddSingleton<IRealtimePresenceTracker, InMemoryRealtimePresenceTracker>();
+var useRedisPresence = !useInMemoryDemoInfrastructure
+    && (!builder.Environment.IsEnvironment("Testing")
+        || builder.Configuration.GetValue("Testing:UseRedisPresence", false));
+if (useRedisPresence)
+{
+    builder.Services.AddSingleton<RedisRealtimePresenceTracker>();
+    builder.Services.AddSingleton<IRealtimePresenceTracker>(
+        sp => sp.GetRequiredService<RedisRealtimePresenceTracker>());
+    builder.Services.AddHostedService<RedisPresenceLeaseService>();
+}
+else
+{
+    builder.Services.AddSingleton<IRealtimePresenceTracker, InMemoryRealtimePresenceTracker>();
+}
 builder.Services.AddSingleton<IHeartbeatPublisher, HeartbeatPublisher>();
 if (useInMemoryDemoInfrastructure || builder.Environment.IsEnvironment("Testing"))
 {

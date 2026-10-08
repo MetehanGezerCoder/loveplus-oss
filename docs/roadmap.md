@@ -7,17 +7,17 @@
 - [x] PostgreSQL/PostGIS migration and Redis adapter
 - [x] Redacted application logging and consistent Problem Details errors
 - [x] Application, integration and architecture tests
+- [x] Real PostgreSQL/PostGIS pairing integration coverage in CI
 - [x] Dockerised HTTPS deployment, startup migrations and fail-closed Production configuration (v0.5.0)
 - [x] Standalone signed release APK path with build-time HTTPS enforcement (v0.5.0)
 - [x] Production FCM adapter, device push-token registration and token retirement (v0.5.0, server side)
+- [x] Pairing-code creator auto-refresh after partner redemption (foreground refetch + unpaired-only polling)
+- [x] Redis-backed cross-instance realtime presence leases
 - [ ] Android FCM token acquisition (needs a Firebase project and `google-services.json`)
-- [ ] CI, secret scanning, dependency scanning and container scanning
+- [ ] Secret scanning, dependency scanning and container scanning
+- [ ] SignalR Redis backplane for cross-instance realtime group delivery
 - [ ] KVKK consent records, retention enforcement, export and deletion workers
 - [ ] Outbox processor with retry and dead-letter metrics
-- [ ] Pairing-code creator's screen live-updates when the partner redeems the code — currently
-      requires a force-close/reopen; `useCurrentPair()` has no `refetchInterval` and nothing
-      wires `AppState` to React Query's `focusManager`. Found during the real two-phone pairing
-      test on 2026-08-16; see `CLAUDE.md` P2 item 15 for fix options.
 
 ## P1 — First vertical slice (Phase 1A/1B delivered)
 

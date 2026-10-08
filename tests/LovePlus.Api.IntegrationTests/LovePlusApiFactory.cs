@@ -13,15 +13,20 @@ public sealed class LovePlusApiFactory : WebApplicationFactory<Program>
 {
     private static readonly string? TestPostgresConnectionString =
         Environment.GetEnvironmentVariable("LOVEPLUS_TEST_POSTGRES");
+    private static readonly string? TestRedisConnectionString =
+        Environment.GetEnvironmentVariable("LOVEPLUS_TEST_REDIS");
 
     public bool UsesPostgres => !string.IsNullOrWhiteSpace(TestPostgresConnectionString);
+    public bool UsesRedis => !string.IsNullOrWhiteSpace(TestRedisConnectionString);
 
     public LovePlusApiFactory()
     {
         Environment.SetEnvironmentVariable(
             "ConnectionStrings__Postgres",
             TestPostgresConnectionString ?? "Host=localhost;Database=unused;Username=unused");
-        Environment.SetEnvironmentVariable("ConnectionStrings__Redis", "localhost:6379,abortConnect=false");
+        Environment.SetEnvironmentVariable(
+            "ConnectionStrings__Redis",
+            TestRedisConnectionString ?? "localhost:6379,abortConnect=false");
         Environment.SetEnvironmentVariable("Jwt__Issuer", "loveplus-tests");
         Environment.SetEnvironmentVariable("Jwt__Audience", "loveplus-test-client");
         Environment.SetEnvironmentVariable("Jwt__SigningKey", new string('t', 64));
@@ -31,13 +36,16 @@ public sealed class LovePlusApiFactory : WebApplicationFactory<Program>
     {
         var postgresConnection =
             TestPostgresConnectionString ?? "Host=localhost;Database=unused;Username=unused";
+        var redisConnection =
+            TestRedisConnectionString ?? "localhost:6379,abortConnect=false";
 
         builder.UseEnvironment("Testing");
         builder.ConfigureAppConfiguration((_, configuration) =>
             configuration.AddInMemoryCollection(new Dictionary<string, string?>
             {
                 ["ConnectionStrings:Postgres"] = postgresConnection,
-                ["ConnectionStrings:Redis"] = "localhost:6379,abortConnect=false",
+                ["ConnectionStrings:Redis"] = redisConnection,
+                ["Testing:UseRedisPresence"] = UsesRedis ? "true" : "false",
                 ["Jwt:Issuer"] = "loveplus-tests",
                 ["Jwt:Audience"] = "loveplus-test-client",
                 ["Jwt:SigningKey"] = new string('t', 64),
