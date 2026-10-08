@@ -53,7 +53,7 @@ public sealed class SendHeartbeatCommandHandler(
             .SingleOrDefaultAsync(ct)
             ?? throw new ConflictException("The paired partner is unavailable.");
 
-        if (!presence.IsOnline(partner.UserId))
+        if (!await presence.IsOnlineAsync(partner.UserId, ct))
         {
             throw new ConflictException("Partner is not connected right now.");
         }
