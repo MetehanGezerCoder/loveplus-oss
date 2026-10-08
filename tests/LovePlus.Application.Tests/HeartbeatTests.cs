@@ -124,16 +124,16 @@ public sealed class HeartbeatTests
     }
 
     [Fact]
-    public void Presence_tracks_multiple_devices_until_the_last_disconnects()
+    public async Task Presence_tracks_multiple_devices_until_the_last_disconnects()
     {
         var presence = new InMemoryRealtimePresenceTracker();
         var userId = Guid.NewGuid();
-        presence.Connected(userId, "phone");
-        presence.Connected(userId, "tablet");
-        presence.Disconnected(userId, "phone");
-        Assert.True(presence.IsOnline(userId));
-        presence.Disconnected(userId, "tablet");
-        Assert.False(presence.IsOnline(userId));
+        await presence.ConnectedAsync(userId, "phone", default);
+        await presence.ConnectedAsync(userId, "tablet", default);
+        await presence.DisconnectedAsync(userId, "phone", default);
+        Assert.True(await presence.IsOnlineAsync(userId, default));
+        await presence.DisconnectedAsync(userId, "tablet", default);
+        Assert.False(await presence.IsOnlineAsync(userId, default));
     }
 
     [Fact]
@@ -182,7 +182,10 @@ public sealed class HeartbeatTests
 
             var store = new InMemoryHeartbeatStore();
             var presence = new InMemoryRealtimePresenceTracker();
-            if (online) presence.Connected(users[1].Id, "partner-phone");
+            if (online)
+            {
+                await presence.ConnectedAsync(users[1].Id, "partner-phone", default);
+            }
             var publisher = new TestHeartbeatPublisher();
             var clock = new TestClock(Now);
             return new Fixture(
