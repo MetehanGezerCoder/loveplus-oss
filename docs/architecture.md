@@ -1,6 +1,6 @@
 # Architecture
 
-Love+ v0.4.0 is a modular monolith. Module boundaries are represented by namespaces and CQRS contracts; high-volume modules can later be extracted without exposing repositories across modules.
+Love+ v0.5.0 is a modular monolith. Module boundaries are represented by namespaces and CQRS contracts; high-volume modules can later be extracted without exposing repositories across modules.
 
 ## Dependency direction
 
@@ -36,6 +36,7 @@ Messaging, Vault, Safety, Memories, Special Days and Subscriptions are roadmap b
 - Pair membership is explicit so unpairing and deletion workflows can later preserve audit state while removing personal data.
 - Outbox payloads contain identifiers and availability flags, never exact coordinates.
 - Heartbeat patterns are never durable. Redis holds only event routing/idempotency/ACK metadata for 20 seconds by default; neither the pattern nor a delayed-delivery job is stored.
+- Realtime connection presence is stored as short-lived Redis membership plus per-API-instance leases. A crashed process therefore ages out instead of leaving a user permanently online.
 
 ## Mobile boundaries
 
@@ -43,11 +44,13 @@ Feature folders export their public API from `index.ts`. TanStack Query owns ser
 
 ## Heartbeat routing decision
 
-`POST /api/heartbeat/` is a CQRS boundary. Claims identify the sender; the active pair identifies the partner. The API publishes to the partner's user group, not to a client-selected target. All currently connected partner devices receive the event; each device deduplicates `EventId`, and the first accepted ACK establishes the sender-facing result. Disconnected devices do not receive delayed waveforms. In-memory presence is adequate for the USB demo; a scaled multi-instance deployment must replace it with a distributed presence adapter.
+`POST /api/heartbeat/` is a CQRS boundary. Claims identify the sender; the active pair identifies the partner. The API publishes to the partner's user group, not to a client-selected target. All currently connected partner devices receive the event; each device deduplicates `EventId`, and the first accepted ACK establishes the sender-facing result. Disconnected devices do not receive delayed waveforms.
+
+Local demo/test mode uses an in-memory connection tracker. Normal deployments use Redis-backed presence, so multiple API processes agree on whether a partner has at least one live SignalR connection. Presence distribution alone does **not** distribute SignalR group messages: horizontal scaling still requires a SignalR Redis backplane (or another supported scale-out transport) so a publisher on one API instance can reach sockets hosted by another.
 
 ## Production boundaries
 
-`src/LovePlus.Api/Startup` owns the deployment boundary: `ProductionConfigurationGuard` (fail-closed configuration validation), `PushNotificationSetup` (declared provider selection), `DatabaseMigrator` (startup migration with a reported outcome) and the `RuntimeDiagnostics` contract.
+`src/LovePlus.Api/Startup` owns the deployment boundary: `ProductionConfigurationGuard` (fail-closed configuration validation), `PushNotificationSetup` (declared provider selection), `DatabaseMigrator` (startup migration with a reported outcome), `RedisPresenceLeaseService` (cross-instance presence lease refresh) and the `RuntimeDiagnostics` contract.
 
 The development push adapter performs no external send and logs only the event identifier. Production must declare `Push__Provider`: either `firebase` with a service account, which selects the FCM HTTP v1 adapter, or an explicit `disabled`. An undeclared provider fails startup, because a silent no-op would let the product imply a delivery it never made.
 
