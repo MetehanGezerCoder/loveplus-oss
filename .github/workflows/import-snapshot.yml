@@ -17,7 +17,7 @@ jobs:
         with:
           fetch-depth: 1
 
-      - name: Restore snapshot files
+      - name: Restore sanitized archive
         shell: bash
         run: |
           if [ ! -f oss-import/READY ]; then
@@ -25,27 +25,32 @@ jobs:
             exit 0
           fi
           python3 - <<'PY'
-          import base64, hashlib, json, os, pathlib
+          import base64, hashlib, json, pathlib, tarfile, tempfile
 
-          chunks = sorted(pathlib.Path('oss-import').glob('chunk-*.json'))
-          if not chunks:
-              raise SystemExit('No import chunks found')
+          import_dir = pathlib.Path('oss-import')
+          metadata = json.loads((import_dir / 'METADATA.json').read_text(encoding='utf-8'))
+          chunks = sorted(import_dir.glob('archive-*.txt'))
+          if len(chunks) != metadata['chunk_count']:
+              raise SystemExit(f"Expected {metadata['chunk_count']} chunks, found {len(chunks)}")
 
-          count = 0
-          for chunk_path in chunks:
-              records = json.loads(chunk_path.read_text(encoding='utf-8'))
-              for record in records:
-                  data = base64.b64decode(record['data'])
-                  digest = hashlib.sha256(data).hexdigest()
-                  if digest != record['sha256']:
-                      raise SystemExit(f"SHA-256 mismatch for {record['path']}")
-                  path = pathlib.Path(record['path'])
-                  path.parent.mkdir(parents=True, exist_ok=True)
-                  path.write_bytes(data)
-                  if record['mode'] == '100755':
-                      path.chmod(path.stat().st_mode | 0o111)
-                  count += 1
-          print(f"restored {count} files")
+          encoded = ''.join(p.read_text(encoding='ascii') for p in chunks)
+          archive_bytes = base64.b64decode(encoded, validate=True)
+          digest = hashlib.sha256(archive_bytes).hexdigest()
+          if digest != metadata['archive_sha256']:
+              raise SystemExit(f"Archive SHA-256 mismatch: {digest}")
+
+          with tempfile.NamedTemporaryFile(suffix='.tar.gz') as archive:
+              archive.write(archive_bytes)
+              archive.flush()
+              with tarfile.open(archive.name, 'r:gz') as tf:
+                  for member in tf.getmembers():
+                      target = (pathlib.Path('.') / member.name).resolve()
+                      root = pathlib.Path('.').resolve()
+                      if root not in target.parents and target != root:
+                          raise SystemExit(f"Unsafe archive path: {member.name}")
+                  tf.extractall('.')
+
+          print(f"restored {metadata['file_count']} sanitized files; sha256={digest}")
           PY
 
       - name: Commit restored snapshot
