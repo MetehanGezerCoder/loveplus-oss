@@ -85,9 +85,9 @@ public interface IEphemeralHeartbeatStore
 
 public interface IRealtimePresenceTracker
 {
-    void Connected(Guid userId, string connectionId);
-    void Disconnected(Guid userId, string connectionId);
-    bool IsOnline(Guid userId);
+    Task ConnectedAsync(Guid userId, string connectionId, CancellationToken cancellationToken);
+    Task DisconnectedAsync(Guid userId, string connectionId, CancellationToken cancellationToken);
+    Task<bool> IsOnlineAsync(Guid userId, CancellationToken cancellationToken);
 }
 
 public interface IHeartbeatPublisher
