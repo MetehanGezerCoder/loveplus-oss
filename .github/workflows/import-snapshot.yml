@@ -19,11 +19,10 @@ jobs:
 
       - name: Download and verify sanitized snapshot
         shell: bash
-        env:
-          SNAPSHOT_URL: "https://sdmntprcentralindia.oaiusercontent.com/files/00000000-fb18-8208-b804-02043a388672/raw?se=2026-10-08T08%3A26%3A14Z&sp=r&sv=2026-02-06&sr=b&scid=b1bfced7-60f3-5058-8fe7-6e287b1a0797&skoid=a0b9f82a-c86e-4064-a822-2aa38890bb37&sktid=a48cca56-e6da-484e-a814-9c849652bcb3&skt=2026-10-08T03%3A20%3A46Z&ske=2026-10-09T03%3A20%3A46Z&sks=b&skv=2026-02-06&sig=Pf6s0E4LfJ4kZAXtm4f7YeUNtedyasryfXWIFf2tmtk%3D"
-          SNAPSHOT_SHA256: "569ead221d1c5888533b6270419bbdf8abc973524253ee1df2bb0706ed7fed4d"
         run: |
           test -f oss-import/READY
+          SNAPSHOT_URL="$(base64 --decode oss-import/URL.b64)"
+          SNAPSHOT_SHA256="$(tr -d '\r\n' < oss-import/SHA256)"
           curl --fail --location --silent --show-error "$SNAPSHOT_URL" --output /tmp/loveplus-snapshot.zip
           mkdir -p /tmp/loveplus-artifact
           unzip -q /tmp/loveplus-snapshot.zip -d /tmp/loveplus-artifact
@@ -47,7 +46,7 @@ jobs:
         shell: bash
         run: |
           rm -rf oss-import
-          rm -f .github/workflows/import-snapshot.yml
+          rm -f .github/workflows/ci.yml
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add -A
