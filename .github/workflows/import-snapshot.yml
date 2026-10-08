@@ -17,46 +17,37 @@ jobs:
         with:
           fetch-depth: 1
 
-      - name: Restore sanitized archive
+      - name: Download and verify sanitized snapshot
         shell: bash
+        env:
+          SNAPSHOT_URL: "https://sdmntprcentralindia.oaiusercontent.com/files/00000000-fb18-8208-b804-02043a388672/raw?se=2026-10-08T08%3A26%3A14Z&sp=r&sv=2026-02-06&sr=b&scid=b1bfced7-60f3-5058-8fe7-6e287b1a0797&skoid=a0b9f82a-c86e-4064-a822-2aa38890bb37&sktid=a48cca56-e6da-484e-a814-9c849652bcb3&skt=2026-10-08T03%3A20%3A46Z&ske=2026-10-09T03%3A20%3A46Z&sks=b&skv=2026-02-06&sig=Pf6s0E4LfJ4kZAXtm4f7YeUNtedyasryfXWIFf2tmtk%3D"
+          SNAPSHOT_SHA256: "569ead221d1c5888533b6270419bbdf8abc973524253ee1df2bb0706ed7fed4d"
         run: |
-          if [ ! -f oss-import/READY ]; then
-            echo "READY marker is absent; nothing to import."
-            exit 0
-          fi
+          test -f oss-import/READY
+          curl --fail --location --silent --show-error "$SNAPSHOT_URL" --output /tmp/loveplus-snapshot.zip
+          mkdir -p /tmp/loveplus-artifact
+          unzip -q /tmp/loveplus-snapshot.zip -d /tmp/loveplus-artifact
+          ARCHIVE=/tmp/loveplus-artifact/loveplus-oss.tar.gz
+          test -f "$ARCHIVE"
+          echo "$SNAPSHOT_SHA256  $ARCHIVE" | sha256sum --check --strict
+
           python3 - <<'PY'
-          import base64, hashlib, json, pathlib, tarfile, tempfile
-
-          import_dir = pathlib.Path('oss-import')
-          metadata = json.loads((import_dir / 'METADATA.json').read_text(encoding='utf-8'))
-          chunks = sorted(import_dir.glob('archive-*.txt'))
-          if len(chunks) != metadata['chunk_count']:
-              raise SystemExit(f"Expected {metadata['chunk_count']} chunks, found {len(chunks)}")
-
-          encoded = ''.join(p.read_text(encoding='ascii') for p in chunks)
-          archive_bytes = base64.b64decode(encoded, validate=True)
-          digest = hashlib.sha256(archive_bytes).hexdigest()
-          if digest != metadata['archive_sha256']:
-              raise SystemExit(f"Archive SHA-256 mismatch: {digest}")
-
-          with tempfile.NamedTemporaryFile(suffix='.tar.gz') as archive:
-              archive.write(archive_bytes)
-              archive.flush()
-              with tarfile.open(archive.name, 'r:gz') as tf:
-                  for member in tf.getmembers():
-                      target = (pathlib.Path('.') / member.name).resolve()
-                      root = pathlib.Path('.').resolve()
-                      if root not in target.parents and target != root:
-                          raise SystemExit(f"Unsafe archive path: {member.name}")
-                  tf.extractall('.')
-
-          print(f"restored {metadata['file_count']} sanitized files; sha256={digest}")
+          import pathlib, tarfile
+          archive = pathlib.Path('/tmp/loveplus-artifact/loveplus-oss.tar.gz')
+          root = pathlib.Path('.').resolve()
+          with tarfile.open(archive, 'r:gz') as tf:
+              for member in tf.getmembers():
+                  target = (root / member.name).resolve()
+                  if root not in target.parents and target != root:
+                      raise SystemExit(f'Unsafe archive path: {member.name}')
+              tf.extractall(root)
           PY
 
       - name: Commit restored snapshot
         shell: bash
         run: |
           rm -rf oss-import
+          rm -f .github/workflows/import-snapshot.yml
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add -A
