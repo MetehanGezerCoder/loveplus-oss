@@ -61,7 +61,7 @@ export function PermissionsScreen() {
       <Text style={styles.title}>Ne paylaşmak istersin?</Text>
       <Text style={styles.body}>Pil durumu gerçek cihazdan otomatik paylaşılır. Konum ve aktivite tamamen senin kontrolünde.</Text>
       <PermissionRow title="Gerçek pil durumu" note="Pil yüzdesi ve şarj değişince güncellenir" value locked />
-      <PermissionRow title="Konum paylaşımı" note={state.locationSharing ? 'Meliha/Metehan haritada görebilir' : 'Kapalı · koordinat gönderilmez'} value={state.locationSharing} onChange={value => { toggleLocation(value).catch(() => undefined); }} disabled={busy} />
+      <PermissionRow title="Konum paylaşımı" note={state.locationSharing ? 'Partnerin haritada görebilir' : 'Kapalı · koordinat gönderilmez'} value={state.locationSharing} onChange={value => { toggleLocation(value).catch(() => undefined); }} disabled={busy} />
       <PermissionRow title="Aktivite" note="Yürüyor, koşuyor, bisiklette veya araçta" value={state.activityEnabled} onChange={value => { toggleActivity(value).catch(() => undefined); }} disabled={busy} />
       <PermissionRow title="Son konumu göster" note="Paylaşımı kapatınca son bilinen noktayı koru" value={state.shareLastKnown} onChange={value => { persist({...state, shareLastKnown: value}).catch(() => undefined); }} disabled={busy} />
       {Platform.OS === 'android' && Number(Platform.Version) >= 29 && !state.locationSharing ? <PrimaryButton loading={busy} onPress={() => { confirmLocation().catch(() => undefined); }}>İzin verdim, konumu aç</PrimaryButton> : null}
