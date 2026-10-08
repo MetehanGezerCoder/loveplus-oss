@@ -1,0 +1,122 @@
+apply plugin: "com.android.application"
+apply plugin: "org.jetbrains.kotlin.android"
+apply plugin: "com.facebook.react"
+
+// A release APK always embeds the JavaScript bundle, so an installed Love+ never needs a
+// Metro server, a Mac or an ADB reverse tunnel. Debug keeps the Metro loop by default;
+// LOVEPLUS_BUNDLE_IN_DEBUG=true produces a self-contained debug-signed APK for the phases
+// where no release keystore exists yet.
+def bundleInDebugBuild = (System.getenv("LOVEPLUS_BUNDLE_IN_DEBUG") ?: "false").toBoolean()
+
+react {
+    autolinkLibrariesWithApp()
+    // Variants listed here are NOT bundled and expect a Metro server. Release is absent, so a
+    // release APK always carries assets/index.android.bundle. Clearing the list also bundles
+    // debug, which is how a self-contained artifact is produced before a keystore exists.
+    debuggableVariants = bundleInDebugBuild ? [] : ["debug"]
+}
+
+def jscFlavor = "io.github.react-native-community:jsc-android:2026004.+"
+def apiBaseUrl = System.getenv("LOVEPLUS_API_BASE_URL") ?: "http://10.0.2.2:5080"
+def googleMapsApiKey = System.getenv("LOVEPLUS_GOOGLE_MAPS_API_KEY") ?: ""
+def buildingRelease = gradle.startParameter.taskNames.any { it.toLowerCase().contains("release") }
+
+// A release APK is the artifact that leaves this machine. It must not be able to carry a
+// loopback or emulator address, and it must not talk to the couple's telemetry in cleartext.
+if (buildingRelease) {
+    if (!apiBaseUrl.startsWith("https://")) {
+        throw new GradleException(
+            "LOVEPLUS_API_BASE_URL must be an https:// URL for a release build (received '${apiBaseUrl}'). " +
+            "127.0.0.1 and 10.0.2.2 belong to the local USB/emulator workflow only.")
+    }
+    if (apiBaseUrl.contains("127.0.0.1") || apiBaseUrl.contains("10.0.2.2") || apiBaseUrl.contains("localhost")) {
+        throw new GradleException(
+            "LOVEPLUS_API_BASE_URL '${apiBaseUrl}' is a local development address and cannot be released.")
+    }
+}
+
+// Signing material lives outside the repository. Provide either android/keystore.properties
+// (git-ignored) or the LOVEPLUS_RELEASE_* environment variables. Nothing is defaulted: an
+// unsigned release APK is preferable to one signed with a key committed to source.
+def releaseSigning = new Properties()
+def releaseKeystoreFile = rootProject.file("keystore.properties")
+if (releaseKeystoreFile.exists()) {
+    releaseKeystoreFile.withInputStream { releaseSigning.load(it) }
+} else if (System.getenv("LOVEPLUS_RELEASE_STORE_FILE")) {
+    releaseSigning.setProperty("storeFile", System.getenv("LOVEPLUS_RELEASE_STORE_FILE"))
+    releaseSigning.setProperty("storePassword", System.getenv("LOVEPLUS_RELEASE_STORE_PASSWORD") ?: "")
+    releaseSigning.setProperty("keyAlias", System.getenv("LOVEPLUS_RELEASE_KEY_ALIAS") ?: "")
+    releaseSigning.setProperty("keyPassword", System.getenv("LOVEPLUS_RELEASE_KEY_PASSWORD") ?: "")
+}
+def hasReleaseSigning = releaseSigning.getProperty("storeFile") &&
+    file(releaseSigning.getProperty("storeFile")).exists() &&
+    releaseSigning.getProperty("storePassword") &&
+    releaseSigning.getProperty("keyAlias") &&
+    releaseSigning.getProperty("keyPassword")
+if (buildingRelease && !hasReleaseSigning) {
+    logger.warn(
+        "Love+: no release signing material found. The release APK will be unsigned. Create " +
+        "android/keystore.properties (storeFile/storePassword/keyAlias/keyPassword) or set the " +
+        "LOVEPLUS_RELEASE_* environment variables. See docs/android-release.md.")
+}
+
+android {
+    ndkVersion rootProject.ext.ndkVersion
+    buildToolsVersion rootProject.ext.buildToolsVersion
+    compileSdk rootProject.ext.compileSdkVersion
+    namespace "com.loveplus"
+
+    defaultConfig {
+        applicationId "com.loveplus"
+        minSdkVersion rootProject.ext.minSdkVersion
+        targetSdkVersion rootProject.ext.targetSdkVersion
+        versionCode 6
+        versionName "0.5.0"
+        buildConfigField "String", "API_BASE_URL", "\"${apiBaseUrl}\""
+        buildConfigField "boolean", "MAPS_ENABLED", (!googleMapsApiKey.isBlank()).toString()
+        resValue "string", "google_maps_api_key", googleMapsApiKey
+    }
+    buildFeatures { buildConfig true }
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+        coreLibraryDesugaringEnabled true
+    }
+    kotlinOptions { jvmTarget = "17" }
+    signingConfigs {
+        if (hasReleaseSigning) {
+            release {
+                storeFile file(releaseSigning.getProperty("storeFile"))
+                storePassword releaseSigning.getProperty("storePassword")
+                keyAlias releaseSigning.getProperty("keyAlias")
+                keyPassword releaseSigning.getProperty("keyPassword")
+            }
+        }
+    }
+    buildTypes {
+        debug {}
+        release {
+            if (hasReleaseSigning) {
+                signingConfig signingConfigs.release
+            }
+            minifyEnabled true
+            shrinkResources true
+            proguardFiles getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro"
+        }
+    }
+}
+
+dependencies {
+    coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.5")
+    implementation("com.facebook.react:react-android")
+    implementation("com.google.android.gms:play-services-location:21.3.0")
+    implementation("androidx.core:core-ktx:1.15.0")
+    implementation("androidx.security:security-crypto:1.1.0-alpha06")
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.10.2")
+    testImplementation("junit:junit:4.13.2")
+    if (hermesEnabled.toBoolean()) {
+        implementation("com.facebook.react:hermes-android")
+    } else {
+        implementation jscFlavor
+    }
+}

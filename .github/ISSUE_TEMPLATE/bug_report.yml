@@ -1,0 +1,39 @@
+name: Bug report
+description: Report a reproducible problem in Love+
+title: "[Bug]: "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: Thanks for helping improve Love+. Do not include secrets, real credentials, precise location data, or private user content.
+  - type: textarea
+    id: summary
+    attributes:
+      label: Summary
+      description: What happened, and what did you expect instead?
+    validations:
+      required: true
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: Reproduction steps
+      description: Provide the smallest reliable sequence that reproduces the issue.
+    validations:
+      required: true
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment
+      description: OS/device, .NET/Node/Android versions, and relevant commit or release.
+  - type: textarea
+    id: logs
+    attributes:
+      label: Sanitized logs
+      description: Remove tokens, coordinates, credentials, private endpoints, and personal data before pasting logs.
+  - type: checkboxes
+    id: security
+    attributes:
+      label: Security check
+      options:
+        - label: This is not a private security vulnerability. I will use SECURITY.md for sensitive reports.
+          required: true

@@ -1,0 +1,13 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/LovePlus.Domain/LovePlus.Domain.csproj" />
+    <Project Path="src/LovePlus.Application/LovePlus.Application.csproj" />
+    <Project Path="src/LovePlus.Infrastructure/LovePlus.Infrastructure.csproj" />
+    <Project Path="src/LovePlus.Api/LovePlus.Api.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/LovePlus.Application.Tests/LovePlus.Application.Tests.csproj" />
+    <Project Path="tests/LovePlus.Api.IntegrationTests/LovePlus.Api.IntegrationTests.csproj" />
+    <Project Path="tests/LovePlus.Architecture.Tests/LovePlus.Architecture.Tests.csproj" />
+  </Folder>
+</Solution>

@@ -1,0 +1,26 @@
+.env
+.DS_Store
+bin/
+obj/
+node_modules/
+.idea/
+.vscode/
+*.user
+*.suo
+mobile/android/.gradle/
+mobile/android/.kotlin/
+mobile/android/.cxx/
+mobile/android/build/
+mobile/android/local.properties
+mobile/android/keystore.properties
+*.keystore
+*.jks
+firebase-service-account*.json
+.env.production
+mobile/android/app/build/
+mobile/android/app/.cxx/
+mobile/ios/Pods/
+
+# Build outputs / distributable artifacts — not source, kept locally and shared via
+# Slack/direct transfer instead of git history. See release/SHA256SUMS-*.txt for hashes.
+release/
