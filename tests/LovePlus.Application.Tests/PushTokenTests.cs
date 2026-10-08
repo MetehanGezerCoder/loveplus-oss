@@ -12,7 +12,7 @@ public sealed class PushTokenTests
     public async Task Registration_binds_the_token_to_the_authenticated_session()
     {
         await using var db = TestDb.Create();
-        var (user, session) = await SeedAsync(db, "metehan@example.test");
+        var (user, session) = await SeedAsync(db, "alex@example.test");
         var handler = new RegisterPushTokenCommandHandler(db, new TestClock(Now));
 
         var result = await handler.Handle(
@@ -30,7 +30,7 @@ public sealed class PushTokenTests
     public async Task Re_registering_the_same_session_replaces_the_token_instead_of_duplicating_it()
     {
         await using var db = TestDb.Create();
-        var (user, session) = await SeedAsync(db, "metehan@example.test");
+        var (user, session) = await SeedAsync(db, "alex@example.test");
         var handler = new RegisterPushTokenCommandHandler(db, new TestClock(Now));
 
         await handler.Handle(
@@ -48,21 +48,21 @@ public sealed class PushTokenTests
     public async Task A_token_that_moves_to_another_account_is_retired_on_the_previous_owner()
     {
         await using var db = TestDb.Create();
-        var (metehan, metehanSession) = await SeedAsync(db, "metehan@example.test");
-        var (meliha, melihaSession) = await SeedAsync(db, "meliha@example.test");
+        var (alex, alexSession) = await SeedAsync(db, "alex@example.test");
+        var (taylor, taylorSession) = await SeedAsync(db, "taylor@example.test");
         var handler = new RegisterPushTokenCommandHandler(db, new TestClock(Now));
         var token = new string('c', 32);
 
         await handler.Handle(
-            new RegisterPushTokenCommand(metehan.Id, metehanSession.Id, "android", token),
+            new RegisterPushTokenCommand(alex.Id, alexSession.Id, "android", token),
             CancellationToken.None);
         await handler.Handle(
-            new RegisterPushTokenCommand(meliha.Id, melihaSession.Id, "android", token),
+            new RegisterPushTokenCommand(taylor.Id, taylorSession.Id, "android", token),
             CancellationToken.None);
 
         var active = await db.DevicePushTokens.Where(x => x.DisabledAtUtc == null).ToListAsync();
         var retired = await db.DevicePushTokens.Where(x => x.DisabledAtUtc != null).ToListAsync();
-        Assert.Equal(meliha.Id, Assert.Single(active).UserId);
+        Assert.Equal(taylor.Id, Assert.Single(active).UserId);
         Assert.Equal(token, active[0].Token);
         Assert.DoesNotContain(retired, x => x.Token == token);
     }
