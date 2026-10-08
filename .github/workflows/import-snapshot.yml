@@ -1,0 +1,59 @@
+name: Import sanitized Love+ snapshot
+
+on:
+  push:
+    branches: [import-sanitized-snapshot]
+    paths:
+      - oss-import/READY
+
+permissions:
+  contents: write
+
+jobs:
+  import:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Restore snapshot files
+        shell: bash
+        run: |
+          if [ ! -f oss-import/READY ]; then
+            echo "READY marker is absent; nothing to import."
+            exit 0
+          fi
+          python3 - <<'PY'
+          import base64, hashlib, json, os, pathlib
+
+          chunks = sorted(pathlib.Path('oss-import').glob('chunk-*.json'))
+          if not chunks:
+              raise SystemExit('No import chunks found')
+
+          count = 0
+          for chunk_path in chunks:
+              records = json.loads(chunk_path.read_text(encoding='utf-8'))
+              for record in records:
+                  data = base64.b64decode(record['data'])
+                  digest = hashlib.sha256(data).hexdigest()
+                  if digest != record['sha256']:
+                      raise SystemExit(f"SHA-256 mismatch for {record['path']}")
+                  path = pathlib.Path(record['path'])
+                  path.parent.mkdir(parents=True, exist_ok=True)
+                  path.write_bytes(data)
+                  if record['mode'] == '100755':
+                      path.chmod(path.stat().st_mode | 0o111)
+                  count += 1
+          print(f"restored {count} files")
+          PY
+
+      - name: Commit restored snapshot
+        shell: bash
+        run: |
+          rm -rf oss-import
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "chore: import sanitized Love+ OSS snapshot"
+          git push
