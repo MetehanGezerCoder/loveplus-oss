@@ -78,7 +78,7 @@ public sealed class PresenceFreshnessTests
             "device-1",
             SequenceNumber: 12,
             TelemetrySource.RealDevice),
-        "Meliha",
+        "Taylor",
         counterpart: null,
         Policy,
         new GeoDistanceCalculator(),
