@@ -1,0 +1,102 @@
+# Love+ remote two-phone deployment.
+#
+#   cp .env.production.example .env.production
+#   # fill in every value, then:
+#   docker compose --env-file .env.production -f docker-compose.prod.yml config
+#   docker compose --env-file .env.production -f docker-compose.prod.yml up -d --build
+#
+# TLS is terminated by the `proxy` service. PostgreSQL and Redis are never published to the
+# host: only Caddy binds 80/443, so the database and cache stay on the internal network.
+
+services:
+  postgres:
+    image: postgis/postgis:17-3.5
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:?set POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER:?set POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD}
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+    networks: [loveplus]
+    restart: unless-stopped
+
+  redis:
+    image: redis:7.4-alpine
+    command: ["sh", "-c", "exec redis-server --requirepass \"$$REDIS_PASSWORD\" --appendonly no --save ''"]
+    environment:
+      REDIS_PASSWORD: ${REDIS_PASSWORD:?set REDIS_PASSWORD}
+    healthcheck:
+      test: ["CMD-SHELL", "redis-cli -a \"$$REDIS_PASSWORD\" ping | grep -q PONG"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+    networks: [loveplus]
+    restart: unless-stopped
+
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    depends_on:
+      postgres: {condition: service_healthy}
+      redis: {condition: service_healthy}
+    environment:
+      ASPNETCORE_ENVIRONMENT: Production
+      ASPNETCORE_URLS: http://0.0.0.0:8080
+      ConnectionStrings__Postgres: "Host=postgres;Port=5432;Database=${POSTGRES_DB};Username=${POSTGRES_USER};Password=${POSTGRES_PASSWORD}"
+      ConnectionStrings__Redis: "redis:6379,password=${REDIS_PASSWORD},abortConnect=false"
+      Jwt__Issuer: ${JWT_ISSUER:-loveplus-api}
+      Jwt__Audience: ${JWT_AUDIENCE:-loveplus-mobile}
+      Jwt__SigningKey: ${JWT_SIGNING_KEY:?set JWT_SIGNING_KEY}
+      Jwt__AccessTokenMinutes: ${JWT_ACCESS_TOKEN_MINUTES:-15}
+      Jwt__TelemetryTokenDays: ${JWT_TELEMETRY_TOKEN_DAYS:-7}
+      Jwt__RefreshTokenDays: ${JWT_REFRESH_TOKEN_DAYS:-30}
+      Api__RequireHttps: "true"
+      # Caddy is the only hop in front of the API, so its container address is the one
+      # allowed to set X-Forwarded-For/Proto.
+      Api__TrustedProxies: ${API_TRUSTED_PROXIES:-}
+      Database__MigrateOnStartup: "true"
+      Demo__SeedEnabled: "false"
+      Demo__UseInMemoryInfrastructure: "false"
+      Realtime__ClientStatusHeartbeatSeconds: ${REALTIME_CLIENT_HEARTBEAT_SECONDS:-60}
+      Realtime__OnlineSeconds: ${REALTIME_ONLINE_SECONDS:-180}
+      Realtime__RecentlyOnlineSeconds: ${REALTIME_RECENTLY_ONLINE_SECONDS:-600}
+      Realtime__EnableSimulator: "false"
+      # Either 'firebase' with a service account, or an explicit 'disabled'. Startup fails on
+      # any other value rather than quietly running without notifications.
+      Push__Provider: ${PUSH_PROVIDER:?set PUSH_PROVIDER to firebase or disabled}
+      # Minified single-line service-account JSON. To mount a file instead, see
+      # docs/deployment.md and set Push__Firebase__ServiceAccountJsonPath.
+      Push__Firebase__ServiceAccountJson: ${PUSH_FIREBASE_SERVICE_ACCOUNT_JSON:-}
+    networks: [loveplus]
+    restart: unless-stopped
+
+  proxy:
+    image: caddy:2-alpine
+    depends_on: [api]
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      LOVEPLUS_DOMAIN: ${LOVEPLUS_DOMAIN:?set LOVEPLUS_DOMAIN}
+      LOVEPLUS_ACME_EMAIL: ${LOVEPLUS_ACME_EMAIL:?set LOVEPLUS_ACME_EMAIL}
+    volumes:
+      - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+    networks: [loveplus]
+    restart: unless-stopped
+
+networks:
+  loveplus:
+    driver: bridge
+
+volumes:
+  postgres-data:
+  caddy-data:
+  caddy-config:

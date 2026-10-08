@@ -1,0 +1,31 @@
+# TLS front door for Love+. Caddy obtains and renews a certificate from Let's Encrypt for
+# LOVEPLUS_DOMAIN, then forwards plain HTTP to the API container on the internal network.
+#
+# The API itself refuses any request this proxy reports as cleartext, so a misconfigured
+# proxy fails loudly instead of silently serving the couple's telemetry over HTTP.
+
+{
+	email {$LOVEPLUS_ACME_EMAIL}
+}
+
+{$LOVEPLUS_DOMAIN} {
+	encode zstd gzip
+
+	header {
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+		X-Content-Type-Options "nosniff"
+		X-Frame-Options "DENY"
+		Referrer-Policy "no-referrer"
+		-Server
+	}
+
+	# SignalR needs long-lived WebSocket upgrades; the default proxy timeouts would cut the
+	# partner presence stream every minute.
+	reverse_proxy api:8080 {
+		header_up X-Forwarded-Proto {scheme}
+		transport http {
+			read_timeout 0
+			write_timeout 0
+		}
+	}
+}

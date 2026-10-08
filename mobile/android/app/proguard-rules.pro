@@ -1,0 +1,3 @@
+-keep class com.loveplus.bridge.** { *; }
+-keep class com.loveplus.foreground.** { *; }
+-keep class com.loveplus.widget.** { *; }

@@ -1,0 +1,7 @@
+<resources>
+    <string name="app_name">Love+</string>
+    <string name="tracking_channel_name">Canlı durum paylaşımı</string>
+    <string name="tracking_notification_title">Love+ canlı durum aktif</string>
+    <string name="tracking_notification_body">Konum ve pil, izin verdiğiniz sürece dengeli aralıklarla paylaşılır.</string>
+    <string name="widget_description">Partner canlı durum özeti</string>
+</resources>

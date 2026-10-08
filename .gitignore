@@ -20,4 +20,7 @@ firebase-service-account*.json
 mobile/android/app/build/
 mobile/android/app/.cxx/
 mobile/ios/Pods/
+
+# Build outputs / distributable artifacts — not source, kept locally and shared via
+# Slack/direct transfer instead of git history. See release/SHA256SUMS-*.txt for hashes.
 release/
